@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Local data: SQLite database and uploaded ticket attachments
+**/App_Data/
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,79 @@
+@page
+@model ReportsModel
+@{
+    ViewData["Title"] = L["Reports"].Value;
+    var maxDaily = Math.Max(1, Model.Daily.Select(d => Math.Max(d.Created, d.Resolved)).DefaultIfEmpty().Max());
+    string P(double? v) => v.HasValue ? $"{v:0}%" : "—";
+}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">Reports &amp; analytics</h1>
+    <form method="get" class="d-flex gap-2 flex-wrap align-items-center">
+        <input type="date" class="form-control form-control-sm w-auto" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" aria-label="@L["From"]" />
+        <span class="small">@L["to"]</span>
+        <input type="date" class="form-control form-control-sm w-auto" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" aria-label="@L["To"]" />
+        <button class="btn btn-sm btn-secondary">@L["Apply"]</button>
+        <a class="btn btn-sm btn-outline-secondary" href="@Url.Page("Reports", "Export", new { from = Model.From?.ToString("yyyy-MM-dd"), to = Model.To?.ToString("yyyy-MM-dd") })"><i class="bi bi-download"></i> @L["CSV"]</a>
+    </form>
+</div>
+
+<div class="row g-3 mb-3">
+    @foreach (var (label, val) in new[] {
+        ("Tickets created", Model.Created.ToString()), ("Resolved", Model.Resolved.ToString()), ("Open now (all time)", Model.OpenNow.ToString()),
+        ("Avg first response", Ui.Duration(Model.AvgFirstResponse)), ("Avg resolution time", Ui.Duration(Model.AvgResolution)),
+        ("First-response SLA met", P(Model.ResponseSla)), ("Resolution SLA met", P(Model.ResolveSla)),
+        ("Customer satisfaction", Model.AvgRating.HasValue ? $"{Model.AvgRating:0.0} ★ ({Model.Rated})" : "—") })
+    {
+        <div class="col-6 col-md-3"><div class="card stat h-100"><div class="num">@val</div><div class="lbl">@L[label]</div></div></div>
+    }
+</div>
+
+<div class="card card-body mb-3">
+    <div class="d-flex justify-content-between"><h2 class="h6">@L["Created vs resolved per day"]</h2>
+        <div class="small"><span class="color-dot" style="background:var(--bs-primary)"></span> @L["Created"] <span class="color-dot ms-2" style="background:var(--bs-success)"></span> @L["Resolved"]</div></div>
+    <div class="d-flex align-items-end gap-1 mt-3" style="height:140px">
+        @foreach (var d in Model.Daily)
+        {
+            <div class="flex-fill d-flex align-items-end gap-0" style="height:100%" title="@L["{0}: {1} created, {2} resolved", d.Day.ToString("dd MMM"), d.Created, d.Resolved]">
+                <div class="flex-fill rounded-top" style="height:@(d.Created * 100 / maxDaily)%;background:var(--bs-primary);min-height:2px"></div>
+                <div class="flex-fill rounded-top" style="height:@(d.Resolved * 100 / maxDaily)%;background:var(--bs-success);min-height:2px"></div>
+            </div>
+        }
+    </div>
+    <div class="d-flex justify-content-between small text-muted mt-1"><span>@Model.From?.ToString("dd MMM")</span><span>@Model.To?.ToString("dd MMM")</span></div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body pb-0"><h2 class="h6">@L["Agent performance"]</h2></div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead><tr><th>@L["Agent"]</th><th>@L["Assigned"]</th><th>@L["Resolved"]</th><th>@L["Avg first response"]</th><th>@L["Avg resolution"]</th><th>@L["SLA met"]</th><th>@L["Rating"]</th></tr></thead>
+            <tbody>
+            @foreach (var a in Model.Agents)
+            {
+                <tr><td>@a.Agent</td><td>@a.Assigned</td><td>@a.Resolved</td><td>@Ui.Duration(a.AvgFirstResponse)</td><td>@Ui.Duration(a.AvgResolution)</td><td>@P(a.SlaMet)</td><td>@(a.Rating?.ToString("0.0") ?? "—")</td></tr>
+            }
+            @if (!Model.Agents.Any()) { <tr><td colspan="7" class="text-muted">@L["No assigned tickets in this period."]</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    @foreach (var (title, groups) in new[] { ("By department", Model.ByDepartment), ("By category", Model.ByCategory), ("By priority", Model.ByPriority), ("By channel", Model.BySource) })
+    {
+        var max = Math.Max(1, groups.Select(g => g.Count).DefaultIfEmpty().Max());
+        <div class="col-md-6 col-xl-3">
+            <div class="card card-body h-100">
+                <h2 class="h6">@L[title]</h2>
+                @foreach (var g in groups)
+                {
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between small"><span>@g.Name</span><span>@g.Count <span class="text-muted">@L["({0} resolved)", g.Resolved]</span></span></div>
+                        <div class="bar-track"><div class="bar" style="width:@(g.Count * 100 / max)%"></div></div>
+                    </div>
+                }
+                @if (!groups.Any()) { <p class="small text-muted mb-0">@L["No data."]</p> }
+            </div>
+        </div>
+    }
+</div>

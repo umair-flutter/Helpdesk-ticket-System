@@ -1,0 +1,143 @@
+﻿@inject SettingsService Settings
+@{
+    var siteName = await Settings.GetAsync(SettingKeys.SiteName, "HelpDesk");
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var path = Context.Request.Path.Value ?? "/";
+    var here = Context.Request.Path + Context.Request.QueryString;
+    var lang = Lang.Current;
+    string Active(string prefix) => (prefix == "/" ? path == "/" : path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="@lang.Code" dir="@(lang.Rtl ? "rtl" : "ltr")" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · @siteName</title>
+    <script>
+        // Apply saved theme before paint to avoid a flash.
+        try { const t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.bsTheme = t; } catch { }
+    </script>
+    @if (lang.Rtl)
+    {
+        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.rtl.min.css" />
+    }
+    else
+    {
+        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    }
+    @if (lang.Code is "ur" or "ar" or "fa")
+    {
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" />
+    }
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script>window.i18n = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Lang.ClientStrings()));</script>
+</head>
+<body>
+@{
+    var langMenu = new HtmlString(string.Concat(Lang.Languages.Select(l =>
+        $"<li><a class=\"dropdown-item {(l.Code == lang.Code ? "active" : "")}\" lang=\"{l.Code}\" href=\"{Url.Page("/Account/Language", new { culture = l.Code, returnUrl = here })}\">{l.NativeName}</a></li>")));
+}
+@if (signedIn)
+{
+    <div class="app">
+        <aside class="sidebar offcanvas-lg offcanvas-start" id="sidebar" tabindex="-1">
+            <div class="d-flex align-items-center justify-content-between px-3 py-3">
+                <a class="brand" asp-page="/Index"><i class="bi bi-life-preserver"></i> @siteName</a>
+                <button class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="@L["Close"]"></button>
+            </div>
+            <nav class="nav flex-column px-2">
+                <a class="nav-link @Active("/")" asp-page="/Index"><i class="bi bi-speedometer2"></i> @L["Dashboard"]</a>
+                <a class="nav-link @Active("/Tickets")" asp-page="/Tickets/Index"><i class="bi bi-ticket-perforated"></i> @L["Tickets"]</a>
+                <a class="nav-link" asp-page="/Tickets/Create"><i class="bi bi-plus-circle"></i> @L["New ticket"]</a>
+                <a class="nav-link @Active("/Kb")" asp-page="/Kb/Index"><i class="bi bi-journal-text"></i> @L["Knowledge base"]</a>
+                @if (User.IsStaff())
+                {
+                    <a class="nav-link @Active("/Reports")" asp-page="/Reports"><i class="bi bi-bar-chart"></i> @L["Reports"]</a>
+                }
+                @if (User.IsInRole(Roles.Admin))
+                {
+                    <div class="nav-section">@L["Administration"]</div>
+                    <a class="nav-link @Active("/Admin/Users")" asp-page="/Admin/Users"><i class="bi bi-people"></i> @L["Users"]</a>
+                    <a class="nav-link @Active("/Admin/Lookups")" asp-page="/Admin/Lookups"><i class="bi bi-sliders"></i> @L["Statuses & lists"]</a>
+                    <a class="nav-link @Active("/Admin/Canned")" asp-page="/Admin/Canned"><i class="bi bi-chat-square-quote"></i> @L["Canned replies"]</a>
+                    <a class="nav-link @Active("/Admin/Settings")" asp-page="/Admin/Settings"><i class="bi bi-gear"></i> @L["Settings"]</a>
+                }
+            </nav>
+        </aside>
+        <div class="main">
+            <header class="topbar">
+                <button class="btn btn-sm btn-outline-secondary d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="@L["Menu"]"><i class="bi bi-list"></i></button>
+                <form class="d-none d-md-flex flex-grow-1" method="get" asp-page="/Tickets/Index" role="search">
+                    <input class="form-control form-control-sm search" name="q" placeholder="@L["Search tickets…"]  ( / )" id="globalSearch" />
+                </form>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="@L["Language"]"><i class="bi bi-translate"></i> <span class="d-none d-sm-inline">@lang.NativeName</span></button>
+                        <ul class="dropdown-menu dropdown-menu-end lang-menu">@langMenu</ul>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="themeToggle" title="@L["Toggle dark mode"]"><i class="bi bi-moon-stars"></i></button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary position-relative" data-bs-toggle="dropdown" id="bell" title="@L["Notifications"]">
+                            <i class="bi bi-bell"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="bellCount">0</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0 notif-menu" id="bellMenu">
+                            <div class="p-3 text-muted small">@L["Loading…"]</div>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">@User.Identity!.Name</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" asp-page="/Profile"><i class="bi bi-person"></i> @L["My profile"]</a></li>
+                            <li><a class="dropdown-item" asp-page="/Notifications/Index"><i class="bi bi-bell"></i> @L["Notifications"]</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><form method="post" asp-page="/Account/Logout"><button class="dropdown-item"><i class="bi bi-box-arrow-right"></i> @L["Sign out"]</button></form></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+            <main class="content">
+                @if (TempData["ok"] is string ok)
+                {
+                    <div class="alert alert-success alert-dismissible fade show">@ok<button class="btn-close" data-bs-dismiss="alert"></button></div>
+                }
+                @if (TempData["err"] is string err)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show">@err<button class="btn-close" data-bs-dismiss="alert"></button></div>
+                }
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+}
+else
+{
+    <nav class="navbar border-bottom px-3">
+        <a class="brand" href="/"><i class="bi bi-life-preserver"></i> @siteName</a>
+        <div class="d-flex gap-2 align-items-center">
+            <a class="btn btn-sm btn-link" asp-page="/Kb/Index">@L["Knowledge base"]</a>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="@L["Language"]"><i class="bi bi-translate"></i> @lang.NativeName</button>
+                <ul class="dropdown-menu dropdown-menu-end lang-menu">@langMenu</ul>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" id="themeToggle" title="@L["Toggle dark mode"]"><i class="bi bi-moon-stars"></i></button>
+            <a class="btn btn-sm btn-primary" asp-page="/Account/Login">@L["Sign in"]</a>
+        </div>
+    </nav>
+    <main class="container py-4">@RenderBody()</main>
+}
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @if (signedIn)
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    }
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

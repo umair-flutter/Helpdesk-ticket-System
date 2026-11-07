@@ -1,0 +1,64 @@
+@page
+@model Help_DeskTicket_System.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = L["Settings"].Value;
+    IHtmlContent Switch(string key, string label) => new HtmlString(
+        $"<div class=\"form-check form-switch mb-2\"><input class=\"form-check-input\" type=\"checkbox\" role=\"switch\" id=\"{key}\" name=\"{key}\" value=\"true\" {(Model.B(key) ? "checked" : "")}><label class=\"form-check-label\" for=\"{key}\">{System.Net.WebUtility.HtmlEncode(Lang.T(label))}</label></div>");
+    IHtmlContent Text(string key, string label, string type = "text", string? hint = null) => new HtmlString(
+        $"<div class=\"mb-2\"><label class=\"form-label small mb-1\" for=\"{key}\">{System.Net.WebUtility.HtmlEncode(Lang.T(label))}</label><input class=\"form-control form-control-sm\" type=\"{type}\" id=\"{key}\" name=\"{key}\" value=\"{System.Net.WebUtility.HtmlEncode(Model.V(key))}\">{(hint is null ? "" : $"<div class=\"form-text\">{System.Net.WebUtility.HtmlEncode(Lang.T(hint))}</div>")}</div>");
+    IHtmlContent Secret(string key, string label) => new HtmlString(
+        $"<div class=\"mb-2\"><label class=\"form-label small mb-1\" for=\"{key}\">{System.Net.WebUtility.HtmlEncode(Lang.T(label))}</label><input class=\"form-control form-control-sm\" type=\"password\" id=\"{key}\" name=\"{key}\" autocomplete=\"new-password\" placeholder=\"{(Model.HasSecret(key) ? System.Net.WebUtility.HtmlEncode(Lang.T("•••••••• (saved — leave blank to keep)")) : "")}\">" +
+        (Model.HasSecret(key) ? $"<div class=\"form-check small mt-1\"><input class=\"form-check-input\" type=\"checkbox\" name=\"{key}.Clear\" value=\"true\" id=\"{key}c\"><label class=\"form-check-label\" for=\"{key}c\">{System.Net.WebUtility.HtmlEncode(Lang.T("Remove saved password"))}</label></div>" : "") + "</div>");
+}
+<h1 class="h4 mb-3">@L["Settings"]</h1>
+<form method="post" id="settingsForm">
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card card-body h-100">
+                <h2 class="h6">@L["General"]</h2>
+                @Text(SettingKeys.SiteName, "Help desk name")
+                @Switch(SettingKeys.AllowRegistration, "Allow customers to register themselves")
+                <h2 class="h6 mt-3">@L["Ticket rules"]</h2>
+                @Switch(SettingKeys.AutoAssign, "Auto-assign new tickets (least-busy agent, same department first)")
+                @Switch(SettingKeys.ClientsCanReopen, "Customers can reopen resolved tickets by replying")
+                @Text(SettingKeys.AutoCloseDays, "Auto-close resolved tickets after (days)", "number", "Moves tickets from Resolved to Closed. 0 turns it off.")
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card card-body h-100">
+                <h2 class="h6">@L["Outgoing email (SMTP)"]</h2>
+                <p class="small text-muted">@L["Used for ticket confirmations, agent replies and status updates."]</p>
+                @Switch(SettingKeys.SmtpEnabled, "Send emails")
+                <div class="row g-2">
+                    <div class="col-8">@Text(SettingKeys.SmtpHost, "Host")</div>
+                    <div class="col-4">@Text(SettingKeys.SmtpPort, "Port", "number")</div>
+                    <div class="col-6">@Text(SettingKeys.SmtpUser, "Username")</div>
+                    <div class="col-6">@Secret(SettingKeys.SmtpPassword, "Password")</div>
+                    <div class="col-6">@Text(SettingKeys.SmtpFromEmail, "From email", "email")</div>
+                    <div class="col-6">@Text(SettingKeys.SmtpFromName, "From name")</div>
+                </div>
+                @Switch(SettingKeys.SmtpUseSsl, "Use SSL/TLS")
+                <div><button class="btn btn-sm btn-outline-secondary" form="testEmail">@L["Send test email to me"]</button></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card card-body h-100">
+                <h2 class="h6">@L["Incoming email → tickets (IMAP)"]</h2>
+                <p class="small text-muted">@L["Unread mail in this inbox becomes a new ticket. Replies whose subject contains the ticket number (e.g. [HD-00012]) are added to that ticket."]</p>
+                @Switch(SettingKeys.ImapEnabled, "Check inbox automatically")
+                <div class="row g-2">
+                    <div class="col-8">@Text(SettingKeys.ImapHost, "Host")</div>
+                    <div class="col-4">@Text(SettingKeys.ImapPort, "Port", "number")</div>
+                    <div class="col-6">@Text(SettingKeys.ImapUser, "Username")</div>
+                    <div class="col-6">@Secret(SettingKeys.ImapPassword, "Password")</div>
+                    <div class="col-6">@Text(SettingKeys.ImapPollMinutes, "Check every (minutes)", "number")</div>
+                </div>
+                @Switch(SettingKeys.ImapUseSsl, "Use SSL")
+                <div><button class="btn btn-sm btn-outline-secondary" form="checkInbox">@L["Check inbox now"]</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-3"><button class="btn btn-primary"><i class="bi bi-save"></i> @L["Save settings"]</button></div>
+</form>
+<form method="post" asp-page-handler="TestEmail" id="testEmail"></form>
+<form method="post" asp-page-handler="CheckInbox" id="checkInbox"></form>

@@ -1,0 +1,98 @@
+@page
+@model Help_DeskTicket_System.Pages.Tickets.CreateModel
+@{ ViewData["Title"] = L["New ticket"].Value; var staff = User.IsStaff(); }
+<h1 class="h4 mb-3">@L["Open a new ticket"]</h1>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <form method="post" enctype="multipart/form-data" class="card card-body">
+            <div asp-validation-summary="All" class="text-danger small"></div>
+            <div class="mb-3">
+                <label asp-for="Form.Subject" class="form-label"></label>
+                <input asp-for="Form.Subject" class="form-control" id="subject" autocomplete="off" placeholder="@L["Short summary of the issue"]" />
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label asp-for="Form.DepartmentId" class="form-label"></label>
+                    <select asp-for="Form.DepartmentId" class="form-select" id="dept">
+                        <option value="">@L["— Not sure —"]</option>
+                        @foreach (var d in Model.Departments) { <option value="@d.Id">@d.Name</option> }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Form.CategoryId" class="form-label"></label>
+                    <select asp-for="Form.CategoryId" class="form-select" id="cat">
+                        <option value="">@L["— None —"]</option>
+                        @foreach (var c in Model.Categories) { <option value="@c.Id" data-dept="@c.DepartmentId">@c.Name</option> }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Form.PriorityId" class="form-label"></label>
+                    <select asp-for="Form.PriorityId" class="form-select">
+                        @foreach (var p in Model.Priorities) { <option value="@p.Id">@p.Name</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Form.Description" class="form-label"></label>
+                <textarea asp-for="Form.Description" class="form-control" rows="8" placeholder="@L["What happened? What did you expect? Steps to reproduce…"]"></textarea>
+                <div class="form-text">@L["Supports **bold**, `code`, \"- \" lists and links."]</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="files">@L["Attachments"]</label>
+                <input type="file" name="Files" id="files" class="form-control" multiple accept="@string.Join(',', TicketService.AllowedExtensions)" />
+                <div class="form-text">@L["Up to 10 MB each. Images, PDF, Office documents, text/log files and zip."]</div>
+            </div>
+            @if (staff)
+            {
+                <fieldset class="border rounded p-3 mb-3">
+                    <legend class="fs-6 w-auto px-2">@L["Agent options"]</legend>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label asp-for="Form.RequesterEmail" class="form-label"></label><input asp-for="Form.RequesterEmail" class="form-control" placeholder="customer@example.com" /></div>
+                        <div class="col-md-6">
+                            <label asp-for="Form.AssignedToId" class="form-label"></label>
+                            <select asp-for="Form.AssignedToId" class="form-select">
+                                <option value="">@L["Auto-assign"]</option>
+                                @foreach (var a in Model.Agents) { <option value="@a.Id">@a.DisplayName</option> }
+                            </select>
+                        </div>
+                        <div class="col-12"><label asp-for="Form.Tags" class="form-label">@L["Tags (comma separated)"]</label><input asp-for="Form.Tags" class="form-control" /></div>
+                    </div>
+                </fieldset>
+            }
+            <div><button class="btn btn-primary"><i class="bi bi-send"></i> @L["Submit ticket"]</button></div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <div class="card card-body" id="kbBox">
+            <h2 class="h6"><i class="bi bi-lightbulb"></i> @L["Suggested articles"]</h2>
+            <p class="small text-muted mb-2">@L["Start typing a subject — we'll look for answers in the knowledge base."]</p>
+            <ul class="small mb-0" id="kbList"></ul>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+(() => {
+  // Show only categories that belong to the chosen department.
+  const dept = document.getElementById('dept'), cat = document.getElementById('cat');
+  const filter = () => [...cat.options].forEach(o => { if (!o.value) return; const ok = !dept.value || !o.dataset.dept || o.dataset.dept === dept.value; o.hidden = !ok; if (!ok && o.selected) cat.value = ''; });
+  dept.addEventListener('change', filter); filter();
+
+  // Knowledge-base suggestions to deflect tickets that already have an answer.
+  const subj = document.getElementById('subject'), list = document.getElementById('kbList');
+  let timer;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  subj.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = subj.value.trim();
+      if (q.length < 3) { list.innerHTML = ''; return; }
+      const r = await fetch('/Kb?handler=Suggest&q=' + encodeURIComponent(q));
+      const items = r.ok ? await r.json() : [];
+      list.innerHTML = items.length ? items.map(a => `<li><a href="/Kb/Article/${a.id}" target="_blank">${esc(a.title)}</a></li>`).join('') : '<li class="text-muted">' + esc(window.i18n['No matching articles.']) + '</li>';
+    }, 300);
+  });
+})();
+</script>
+}

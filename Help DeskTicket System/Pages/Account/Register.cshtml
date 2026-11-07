@@ -1,0 +1,18 @@
+@page
+@model Help_DeskTicket_System.Pages.Account.RegisterModel
+@{ ViewData["Title"] = L["Create account"].Value; }
+<div class="card auth-card shadow-sm">
+    <div class="card-body p-4">
+        <h1 class="h4 mb-3">@L["Create your account"]</h1>
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+            <div class="mb-3"><label asp-for="FullName" class="form-label">@L["Full name"]</label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
+            <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" autocomplete="username" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+            <div class="mb-3"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" autocomplete="new-password" /><span asp-validation-for="Password" class="text-danger small"></span></div>
+            <div class="mb-3"><label asp-for="ConfirmPassword" class="form-label">@L["Confirm password"]</label><input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="ConfirmPassword" class="text-danger small"></span></div>
+            <button class="btn btn-primary w-100">@L["Create account"]</button>
+        </form>
+        <p class="text-center mt-3 mb-0 small">@L["Already registered?"] <a asp-page="Login">@L["Sign in"]</a></p>
+    </div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

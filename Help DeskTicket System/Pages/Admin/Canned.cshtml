@@ -1,0 +1,19 @@
+@page
+@model Help_DeskTicket_System.Pages.Admin.CannedModel
+@{ ViewData["Title"] = L["Canned replies"].Value; }
+<h1 class="h4 mb-1">@L["Canned replies"]</h1>
+<p class="small text-muted mb-3">@L["Saved answers agents can insert into a reply with one click."]</p>
+@foreach (var c in Model.Items.Append(new CannedResponse()))
+{
+    <form method="post" asp-page-handler="Save" class="card card-body mb-2">
+        <input type="hidden" name="Id" value="@c.Id" />
+        <div class="row g-2">
+            <div class="col-md-3"><input class="form-control" name="Title" value="@c.Title" placeholder="@(c.Id == 0 ? L["New reply title"] : L["Title"])" required /></div>
+            <div class="col-md-7"><textarea class="form-control" name="Body" rows="3" required placeholder="@L["Reply text"]">@c.Body</textarea></div>
+            <div class="col-md-2 d-flex gap-2 align-items-start">
+                <button class="btn btn-primary">@(c.Id == 0 ? L["Add"] : L["Save"])</button>
+                @if (c.Id != 0) { <button class="btn btn-outline-danger" asp-page-handler="Delete" asp-route-id="@c.Id" formnovalidate data-confirm="@L["Delete?"]"><i class="bi bi-trash"></i></button> }
+            </div>
+        </div>
+    </form>
+}

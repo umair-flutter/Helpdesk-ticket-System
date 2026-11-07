@@ -1,0 +1,154 @@
+@page
+@model Help_DeskTicket_System.Pages.Tickets.IndexModel
+@{
+    ViewData["Title"] = L["Tickets"].Value;
+    var staff = User.IsStaff();
+    var pages = (int)Math.Ceiling(Model.Total / (double)Help_DeskTicket_System.Pages.Tickets.IndexModel.PageSize);
+    var views = staff
+        ? new[] { ("", "All"), ("open", "Open"), ("mine", "Mine"), ("unassigned", "Unassigned"), ("overdue", "Overdue"), ("closed", "Closed") }
+        : new[] { ("", "All"), ("open", "Open"), ("closed", "Closed") };
+}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">@L["Tickets"] <span class="text-muted fs-6">(@Model.Total)</span></h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="@(Url.Page("Index", "Export", new { Model.Q, Model.View, Model.StatusId, Model.PriorityId, Model.DepartmentId, Model.AssigneeId, Model.Sort }))"><i class="bi bi-download"></i> @L["Export CSV"]</a>
+        <a class="btn btn-primary" asp-page="Create"><i class="bi bi-plus-lg"></i> @L["New ticket"]</a>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-nowrap overflow-auto">
+    @foreach (var (key, label) in views)
+    {
+        <li class="nav-item"><a class="nav-link @((Model.View ?? "") == key ? "active" : "")" asp-page="Index" asp-route-view="@key">@L[label]</a></li>
+    }
+</ul>
+
+<form method="get" class="card card-body mb-3">
+    <input type="hidden" name="view" value="@Model.View" />
+    <div class="row g-2">
+        <div class="col-12 col-md-3"><input class="form-control" name="q" value="@Model.Q" placeholder="@L["Search number, subject, email, tag…"]" /></div>
+        <div class="col-6 col-md-2">
+            <select class="form-select" name="statusId"><option value="">@L["Any status"]</option>
+                @foreach (var s in Model.Statuses) { <option value="@s.Id" selected="@(Model.StatusId == s.Id)">@s.Name</option> }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <select class="form-select" name="priorityId"><option value="">@L["Any priority"]</option>
+                @foreach (var p in Model.Priorities) { <option value="@p.Id" selected="@(Model.PriorityId == p.Id)">@p.Name</option> }
+            </select>
+        </div>
+        @if (staff)
+        {
+            <div class="col-6 col-md-2">
+                <select class="form-select" name="departmentId"><option value="">@L["Any department"]</option>
+                    @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="form-select" name="assigneeId"><option value="">@L["Any assignee"]</option>
+                    @foreach (var a in Model.Agents) { <option value="@a.Id" selected="@(Model.AssigneeId == a.Id)">@a.DisplayName</option> }
+                </select>
+            </div>
+        }
+        <div class="col-6 col-md-1">
+            <select class="form-select" name="sort" title="@L["Sort"]">
+                <option value="updated" selected="@(Model.Sort == "updated")">@L["Updated"]</option>
+                <option value="created" selected="@(Model.Sort == "created")">@L["Created"]</option>
+                <option value="priority" selected="@(Model.Sort == "priority")">@L["Priority"]</option>
+                <option value="due" selected="@(Model.Sort == "due")">@L["Due date"]</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-auto"><button class="btn btn-secondary w-100"><i class="bi bi-funnel"></i> @L["Filter"]</button></div>
+    </div>
+</form>
+
+<form method="post" asp-page-handler="Bulk" id="bulkForm">
+    @if (staff)
+    {
+        <div class="d-flex gap-2 mb-2 flex-wrap align-items-center d-none" id="bulkBar">
+            <span class="small text-muted"><span id="selCount">0</span> @L["selected"]</span>
+            <select class="form-select form-select-sm w-auto" name="action" id="bulkAction">
+                <option value="status">@L["Set status"]</option>
+                <option value="assign">@L["Assign to"]</option>
+                @if (User.IsInRole(Roles.Admin)) { <option value="delete">@L["Delete"]</option> }
+            </select>
+            <select class="form-select form-select-sm w-auto" name="statusId" id="bulkStatus">
+                @foreach (var s in Model.Statuses) { <option value="@s.Id">@s.Name</option> }
+            </select>
+            <select class="form-select form-select-sm w-auto d-none" name="assigneeId" id="bulkAssignee">
+                <option value="">@L["— Unassigned —"]</option>
+                @foreach (var a in Model.Agents) { <option value="@a.Id">@a.DisplayName</option> }
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="return document.getElementById('bulkAction').value !== 'delete' || confirm(window.i18n['Delete selected tickets permanently?'])">@L["Apply"]</button>
+        </div>
+    }
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                <tr>
+                    @if (staff) { <th style="width:32px"><input type="checkbox" class="form-check-input" id="selAll" aria-label="@L["Select all"]" /></th> }
+                    <th>#</th><th>@L["Subject"]</th><th>@L["Status"]</th><th>@L["Priority"]</th>
+                    @if (staff) { <th class="d-none d-lg-table-cell">@L["Requester"]</th><th class="d-none d-md-table-cell">@L["Assignee"]</th> }
+                    <th class="d-none d-lg-table-cell">@L["Due"]</th><th>@L["Updated"]</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var t in Model.Items)
+                {
+                    var isNew = staff && !t.SeenByStaff;
+                    <tr class="ticket-row @(isNew ? "ticket-new" : "")" data-href="/Tickets/Details/@t.Id">
+                        @if (staff) { <td><input type="checkbox" class="form-check-input sel" name="ids" value="@t.Id" aria-label="Select @t.Number" /></td> }
+                        <td class="text-muted small text-nowrap">@t.Number</td>
+                        <td>
+                            @if (isNew) { <span class="badge text-bg-warning me-1">@L["NEW"]</span> }
+                            @if (t.Source == TicketSource.Email) { <i class="bi bi-envelope text-muted" title="@L["Created from email"]"></i> }
+                            @t.Subject
+                            @if (!string.IsNullOrEmpty(t.Tags)) { foreach (var tag in t.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) { <span class="badge text-bg-light border ms-1">@tag</span> } }
+                            @if (staff && t.Department is not null) { <div class="small text-muted">@t.Department.Name</div> }
+                        </td>
+                        <td>@Ui.Status(t.Status)</td>
+                        <td>@Ui.Priority(t.Priority)</td>
+                        @if (staff)
+                        {
+                            <td class="d-none d-lg-table-cell small">@t.CreatedBy?.DisplayName</td>
+                            <td class="d-none d-md-table-cell small">@(t.AssignedTo?.DisplayName ?? "—")</td>
+                        }
+                        <td class="d-none d-lg-table-cell small text-nowrap @(t.IsOverdue ? "overdue" : "text-muted")">
+                            @if (t.Status?.IsClosed == true) { <span>—</span> } else if (t.ResolveDueAt.HasValue) { @Ui.Ago(t.ResolveDueAt.Value) }
+                        </td>
+                        <td class="small text-muted text-nowrap">@Ui.Ago(t.UpdatedAt)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @if (!Model.Items.Any()) { <div class="p-4 text-center text-muted">@L["No tickets match these filters."]</div> }
+    </div>
+</form>
+
+@if (pages > 1)
+{
+    <nav class="mt-3"><ul class="pagination pagination-sm flex-wrap">
+        @for (var i = 1; i <= pages; i++)
+        {
+            <li class="page-item @(i == Model.P ? "active" : "")"><a class="page-link" href="@Model.PageUrl(i)">@i</a></li>
+        }
+    </ul></nav>
+}
+
+@section Scripts {
+<script>
+(() => {
+  const bar = document.getElementById('bulkBar'); if (!bar) return;
+  const boxes = [...document.querySelectorAll('.sel')];
+  const update = () => { const n = boxes.filter(b => b.checked).length; document.getElementById('selCount').textContent = n; bar.classList.toggle('d-none', n === 0); };
+  boxes.forEach(b => b.addEventListener('change', update));
+  document.getElementById('selAll').addEventListener('change', e => { boxes.forEach(b => b.checked = e.target.checked); update(); });
+  document.getElementById('bulkAction').addEventListener('change', e => {
+    document.getElementById('bulkStatus').classList.toggle('d-none', e.target.value !== 'status');
+    document.getElementById('bulkAssignee').classList.toggle('d-none', e.target.value !== 'assign');
+  });
+})();
+</script>
+}

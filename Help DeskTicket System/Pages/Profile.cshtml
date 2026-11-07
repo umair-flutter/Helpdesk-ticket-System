@@ -1,0 +1,24 @@
+@page
+@model ProfileModel
+@{ ViewData["Title"] = L["My profile"].Value; }
+<h1 class="h4 mb-3">@L["My profile"]</h1>
+<div class="row g-3">
+    <div class="col-lg-6">
+        <form method="post" asp-page-handler="Profile" class="card card-body">
+            <h2 class="h6">@L["Details"]</h2>
+            <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+            <div class="mb-3"><label class="form-label">@L["Email"]</label><input class="form-control" value="@Model.Email" disabled /></div>
+            <div class="mb-3"><label asp-for="FullName" class="form-label">@L["Full name"]</label><input asp-for="FullName" class="form-control" /></div>
+            <div class="mb-3"><label asp-for="PhoneNumber" class="form-label">@L["Phone"]</label><input asp-for="PhoneNumber" class="form-control" /></div>
+            <div><button class="btn btn-primary">@L["Save"]</button></div>
+        </form>
+    </div>
+    <div class="col-lg-6">
+        <form method="post" asp-page-handler="Password" class="card card-body">
+            <h2 class="h6">@L["Change password"]</h2>
+            <div class="mb-3"><label asp-for="CurrentPassword" class="form-label">@L["Current password"]</label><input asp-for="CurrentPassword" class="form-control" autocomplete="current-password" /></div>
+            <div class="mb-3"><label asp-for="NewPassword" class="form-label">@L["New password (8+ characters)"]</label><input asp-for="NewPassword" class="form-control" autocomplete="new-password" /></div>
+            <div><button class="btn btn-primary">@L["Change password"]</button></div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,79 @@
+@page
+@model Help_DeskTicket_System.Pages.Admin.UsersModel
+@{ ViewData["Title"] = L["Users"].Value; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">@L["Users"]</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal" data-user=""><i class="bi bi-person-plus"></i> @L["Add user"]</button>
+</div>
+<form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+    <input class="form-control w-auto" name="q" value="@Model.Q" placeholder="@L["Search name or email"]" />
+    <select class="form-select w-auto" name="role">
+        <option value="">@L["All roles"]</option>
+        @foreach (var r in Roles.All) { <option value="@r" selected="@(Model.Role == r)">@L[r]</option> }
+    </select>
+    <button class="btn btn-secondary">@L["Filter"]</button>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>@L["Name"]</th><th>@L["Email"]</th><th>@L["Role"]</th><th class="d-none d-md-table-cell">@L["Department"]</th><th>@L["Open assigned"]</th><th>@L["Tickets raised"]</th><th>@L["Status"]</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var r in Model.Rows)
+            {
+                var u = r.User;
+                var json = System.Text.Json.JsonSerializer.Serialize(new { id = u.Id, fullName = u.FullName, email = u.Email, role = r.Role, departmentId = u.DepartmentId, isActive = u.IsActive });
+                <tr class="@(u.IsActive ? "" : "text-muted")">
+                    <td>@u.DisplayName</td>
+                    <td class="small">@u.Email</td>
+                    <td><span class="badge @(r.Role == Roles.Admin ? "text-bg-danger" : r.Role == Roles.Agent ? "text-bg-primary" : "text-bg-secondary")">@L[r.Role]</span></td>
+                    <td class="d-none d-md-table-cell small">@(u.Department?.Name ?? "—")</td>
+                    <td>@r.OpenAssigned</td>
+                    <td><a asp-page="/Tickets/Index" asp-route-q="@u.Email">@r.Requested</a></td>
+                    <td>@(u.IsActive ? L["Active"] : L["Disabled"])</td>
+                    <td><button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#userModal" data-user="@json"><i class="bi bi-pencil"></i></button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-page-handler="Save" class="modal-content">
+            <div class="modal-header"><h2 class="modal-title fs-5" id="userModalTitle">@L["User"]</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" name="Form.Id" id="uId" />
+                <div class="mb-2"><label class="form-label" for="uName">@L["Full name"]</label><input class="form-control" name="Form.FullName" id="uName" required /></div>
+                <div class="mb-2"><label class="form-label" for="uEmail">@L["Email"]</label><input class="form-control" type="email" name="Form.Email" id="uEmail" required /></div>
+                <div class="row g-2 mb-2">
+                    <div class="col"><label class="form-label" for="uRole">@L["Role"]</label>
+                        <select class="form-select" name="Form.Role" id="uRole">@foreach (var r in Roles.All) { <option value="@r">@L[r]</option> }</select></div>
+                    <div class="col"><label class="form-label" for="uDept">@L["Department"]</label>
+                        <select class="form-select" name="Form.DepartmentId" id="uDept"><option value="">—</option>@foreach (var d in Model.Departments) { <option value="@d.Id">@d.Name</option> }</select></div>
+                </div>
+                <div class="mb-2"><label class="form-label" for="uPass">@L["Password"] <span class="small text-muted" id="uPassHint"></span></label><input class="form-control" type="password" name="Form.Password" id="uPass" autocomplete="new-password" minlength="8" /></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" name="Form.IsActive" value="true" id="uActive" /><input type="hidden" name="Form.IsActive" value="false" /><label class="form-check-label" for="uActive">@L["Active (can sign in)"]</label></div>
+                <p class="small text-muted mt-2 mb-0">@L["Agents in a department get auto-assigned that department's tickets first."]</p>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary">@L["Save"]</button></div>
+        </form>
+    </div>
+</div>
+@section Scripts {
+<script>
+document.getElementById('userModal').addEventListener('show.bs.modal', e => {
+  const raw = e.relatedTarget?.dataset.user; const u = raw ? JSON.parse(raw) : null;
+  document.getElementById('userModalTitle').textContent = u ? @Json.Serialize(L["Edit user"].Value) : @Json.Serialize(L["Add user"].Value);
+  document.getElementById('uId').value = u?.id ?? '';
+  document.getElementById('uName').value = u?.fullName ?? '';
+  document.getElementById('uEmail').value = u?.email ?? '';
+  document.getElementById('uRole').value = u?.role && u.role !== '—' ? u.role : 'Agent';
+  document.getElementById('uDept').value = u?.departmentId ?? '';
+  document.getElementById('uActive').checked = u ? u.isActive : true;
+  document.getElementById('uPass').value = '';
+  document.getElementById('uPass').required = !u;
+  document.getElementById('uPassHint').textContent = u ? @Json.Serialize(L["(leave blank to keep current)"].Value) : @Json.Serialize(L["(min 8 characters)"].Value);
+});
+</script>
+}

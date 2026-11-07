@@ -1,0 +1,42 @@
+@page "{id:int}"
+@model Help_DeskTicket_System.Pages.Kb.ArticleModel
+@{ var a = Model.Article; ViewData["Title"] = a.Title; }
+<a class="small text-decoration-none" asp-page="Index"><i class="bi bi-arrow-left"></i> @L["Knowledge base"]</a>
+<div class="row g-3 mt-1">
+    <div class="col-lg-8">
+        <article class="card card-body">
+            <div class="d-flex justify-content-between gap-2">
+                <h1 class="h4">@a.Title</h1>
+                @if (User.IsStaff()) { <a class="btn btn-sm btn-outline-secondary align-self-start" asp-page="Edit" asp-route-id="@a.Id"><i class="bi bi-pencil"></i> @L["Edit"]</a> }
+            </div>
+            <div class="small text-muted mb-3">@(a.Category?.Name ?? L["General"].Value) · @L["updated {0}", Ui.Ago(a.UpdatedAt)] · @L["{0} views", a.Views]</div>
+            <div dir="auto">@Ui.Text(a.Body)</div>
+            <hr />
+            @if (TempData["voted"] is not null)
+            {
+                <p class="mb-0 text-success">@L["Thanks for the feedback!"]</p>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Vote" asp-route-id="@a.Id" class="d-flex gap-2 align-items-center flex-wrap">
+                    <span>@L["Was this helpful?"]</span>
+                    <button class="btn btn-sm btn-outline-success" name="helpful" value="true"><i class="bi bi-hand-thumbs-up"></i> @L["Yes"]</button>
+                    <button class="btn btn-sm btn-outline-danger" name="helpful" value="false"><i class="bi bi-hand-thumbs-down"></i> @L["No"]</button>
+                    @if (User.IsStaff()) { <span class="small text-muted ms-2">@a.HelpfulYes 👍 / @a.HelpfulNo 👎</span> }
+                </form>
+            }
+        </article>
+    </div>
+    <div class="col-lg-4">
+        <div class="card card-body">
+            <h2 class="h6">@L["Still need help?"]</h2>
+            <p class="small text-muted">@L["Our team is happy to help."]</p>
+            <a class="btn btn-primary" asp-page="/Tickets/Create">@L["Open a ticket"]</a>
+            @if (Model.Related.Any())
+            {
+                <h2 class="h6 mt-4">@L["Related articles"]</h2>
+                <ul class="small mb-0">@foreach (var r in Model.Related) { <li><a asp-page="Article" asp-route-id="@r.Id">@r.Title</a></li> }</ul>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,225 @@
+@page "{id:int}"
+@model Help_DeskTicket_System.Pages.Tickets.DetailsModel
+@{
+    var t = Model.Ticket;
+    ViewData["Title"] = $"{t.Number} {t.Subject}";
+    var staff = User.IsStaff();
+    var isOwner = t.CreatedById == User.Id();
+    var closed = t.Status?.IsClosed == true;
+    var byReply = t.Attachments.ToLookup(a => a.ReplyId);
+
+    IHtmlContent Files(int? replyId) => new HtmlString(string.Join("", byReply[replyId].Select(a =>
+        $"<a class=\"btn btn-sm btn-outline-secondary me-1 mt-2\" href=\"{Url.Page("Details", "File", new { id = t.Id, fileId = a.Id })}\" target=\"_blank\">" +
+        $"<i class=\"bi bi-paperclip\"></i> {System.Net.WebUtility.HtmlEncode(a.FileName)} <span class=\"text-muted\">({Ui.FileSize(a.Size)})</span></a>")));
+}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <a class="small text-decoration-none" asp-page="Index"><i class="bi bi-arrow-left"></i> @L["Tickets"]</a>
+        <h1 class="h4 mb-1" dir="auto">@t.Subject</h1>
+        <div class="small text-muted">
+            @t.Number · @Ui.Status(t.Status) @Ui.Priority(t.Priority) · @L["opened {0} by {1}", Ui.Ago(t.CreatedAt), t.CreatedBy?.DisplayName ?? ""]
+            @if (t.Source == TicketSource.Email) { <span>· <i class="bi bi-envelope"></i> @L["via email"]</span> }
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        @if (staff && t.AssignedToId != User.Id())
+        {
+            <form method="post" asp-page-handler="Take" asp-route-id="@t.Id"><button class="btn btn-outline-primary"><i class="bi bi-hand-index"></i> @L["Take it"]</button></form>
+        }
+        @if (isOwner || staff)
+        {
+            @if (!closed || staff || Model.CanReopen)
+            {
+                <form method="post" asp-page-handler="Toggle" asp-route-id="@t.Id">
+                    <button class="btn @(closed ? "btn-outline-secondary" : "btn-success")">@(closed ? L["Reopen"] : L["Mark resolved"])</button>
+                </form>
+            }
+        }
+        @if (User.IsInRole(Roles.Admin))
+        {
+            <form method="post" asp-page-handler="Delete" asp-route-id="@t.Id" data-confirm="@L["Delete this ticket and all its replies permanently?"]">
+                <button class="btn btn-outline-danger" title="@L["Delete"]"><i class="bi bi-trash"></i></button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="msg">
+            <div class="msg-head"><strong>@t.CreatedBy?.DisplayName</strong><span class="text-muted" title="@t.CreatedAt.ToLocalTime()">@Ui.Ago(t.CreatedAt)</span></div>
+            <div class="msg-body" dir="auto">@Ui.Text(t.Description) @Files(null)</div>
+        </div>
+
+        @foreach (var r in Model.Replies)
+        {
+            var fromStaff = r.AuthorId is not null && Model.StaffIds.Contains(r.AuthorId);
+            <div class="msg @(r.IsInternal ? "internal" : fromStaff ? "staff" : "")" id="r@(r.Id)">
+                <div class="msg-head">
+                    <span>
+                        <strong>@(r.Author?.DisplayName ?? L["Unknown"].Value)</strong>
+                        @if (fromStaff) { <span class="badge text-bg-primary ms-1">@L["Support"]</span> }
+                        @if (r.IsInternal) { <span class="badge text-bg-warning ms-1"><i class="bi bi-lock"></i> @L["Internal note"]</span> }
+                    </span>
+                    <span class="text-muted" title="@r.CreatedAt.ToLocalTime()">@Ui.Ago(r.CreatedAt)</span>
+                </div>
+                <div class="msg-body" dir="auto">@Ui.Text(r.Body) @Files(r.Id)</div>
+            </div>
+        }
+
+        @if (closed && isOwner)
+        {
+            <div class="card card-body mb-3">
+                @if (t.Rating is null)
+                {
+                    <h2 class="h6">@L["How did we do?"]</h2>
+                    <form method="post" asp-page-handler="Rate" asp-route-id="@t.Id">
+                        <div class="stars mb-2">
+                            @for (var i = 5; i >= 1; i--)
+                            {
+                                <input type="radio" name="rating" id="star@(i)" value="@i" required /><label for="star@(i)" title="@i ★">★</label>
+                            }
+                        </div>
+                        <textarea class="form-control mb-2" name="comment" rows="2" placeholder="@L["Anything we could do better? (optional)"]"></textarea>
+                        <button class="btn btn-primary btn-sm">@L["Send feedback"]</button>
+                    </form>
+                }
+                else
+                {
+                    <div>@L["You rated this support"] <span class="text-warning">@(new string('★', t.Rating.Value))@(new string('☆', 5 - t.Rating.Value))</span>@L[". Thank you!"]</div>
+                }
+            </div>
+        }
+
+        @if (!closed || staff || Model.CanReopen)
+        {
+            <form method="post" asp-page-handler="Reply" asp-route-id="@t.Id" enctype="multipart/form-data" class="card card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <h2 class="h6 mb-0">@(closed && !staff ? L["Reply to reopen this ticket"] : L["Reply"])</h2>
+                    @if (staff && Model.Canned.Any())
+                    {
+                        <select class="form-select form-select-sm w-auto" id="canned" aria-label="@L["Insert canned reply"]">
+                            <option value="">@L["Insert canned reply…"]</option>
+                            @foreach (var c in Model.Canned) { <option value="@c.Body">@c.Title</option> }
+                        </select>
+                    }
+                </div>
+                <textarea class="form-control mb-2" name="body" id="replyBody" rows="6" required placeholder="@L["Write your reply…"]"></textarea>
+                <input type="file" name="files" class="form-control form-control-sm mb-2" multiple />
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    @if (staff)
+                    {
+                        <div class="form-check me-2">
+                            <input class="form-check-input" type="checkbox" name="isInternal" value="true" id="internal" />
+                            <label class="form-check-label" for="internal"><i class="bi bi-lock"></i> @L["Internal note (hidden from customer)"]</label>
+                        </div>
+                        <select class="form-select form-select-sm w-auto" name="setStatusId" aria-label="@L["Status after reply"]">
+                            <option value="">@L["Keep status"]</option>
+                            @foreach (var s in Model.Statuses) { <option value="@s.Id">@L["Set to: {0}", s.Name]</option> }
+                        </select>
+                    }
+                    <button class="btn btn-primary ms-auto"><i class="bi bi-send"></i> @L["Send"]</button>
+                </div>
+            </form>
+        }
+    </div>
+
+    <div class="col-lg-4">
+        @if (staff)
+        {
+            <form method="post" asp-page-handler="Update" asp-route-id="@t.Id" class="card card-body mb-3">
+                <h2 class="h6">@L["Properties"]</h2>
+                <label class="form-label small mb-1">@L["Status"]</label>
+                <select class="form-select form-select-sm mb-2" name="statusId">
+                    @foreach (var s in Model.Statuses) { <option value="@s.Id" selected="@(s.Id == t.StatusId)">@s.Name</option> }
+                </select>
+                <label class="form-label small mb-1">@L["Priority"]</label>
+                <select class="form-select form-select-sm mb-2" name="priorityId">
+                    @foreach (var p in Model.Priorities) { <option value="@p.Id" selected="@(p.Id == t.PriorityId)">@p.Name</option> }
+                </select>
+                <label class="form-label small mb-1">@L["Assignee"]</label>
+                <select class="form-select form-select-sm mb-2" name="assignedToId">
+                    <option value="">@L["— Unassigned —"]</option>
+                    @foreach (var a in Model.Agents) { <option value="@a.Id" selected="@(a.Id == t.AssignedToId)">@a.DisplayName</option> }
+                </select>
+                <label class="form-label small mb-1">@L["Department"]</label>
+                <select class="form-select form-select-sm mb-2" name="departmentId">
+                    <option value="">—</option>
+                    @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(d.Id == t.DepartmentId)">@d.Name</option> }
+                </select>
+                <label class="form-label small mb-1">@L["Category"]</label>
+                <select class="form-select form-select-sm mb-2" name="categoryId">
+                    <option value="">—</option>
+                    @foreach (var c in Model.Categories) { <option value="@c.Id" selected="@(c.Id == t.CategoryId)">@c.Name</option> }
+                </select>
+                <label class="form-label small mb-1">@L["Tags"]</label>
+                <input class="form-control form-control-sm mb-3" name="tags" value="@t.Tags" placeholder="@L["vip, refund, bug"]" />
+                <button class="btn btn-sm btn-primary">@L["Save changes"]</button>
+            </form>
+        }
+
+        <div class="card card-body mb-3 small">
+            <h2 class="h6">@L["Details"]</h2>
+            <dl class="row mb-0">
+                <dt class="col-5">@L["Requester"]</dt><dd class="col-7">@t.CreatedBy?.DisplayName<br /><span class="text-muted">@t.CreatedBy?.Email</span></dd>
+                <dt class="col-5">@L["Assignee"]</dt><dd class="col-7">@(t.AssignedTo?.DisplayName ?? "—")</dd>
+                <dt class="col-5">@L["Department"]</dt><dd class="col-7">@(t.Department?.Name ?? "—")</dd>
+                <dt class="col-5">@L["Category"]</dt><dd class="col-7">@(t.Category?.Name ?? "—")</dd>
+                <dt class="col-5">@L["Created"]</dt><dd class="col-7">@t.CreatedAt.ToLocalTime().ToString("g")</dd>
+                @if (staff)
+                {
+                    <dt class="col-5">@L["First reply"]</dt>
+                    <dd class="col-7">
+                        @if (t.FirstResponseAt.HasValue) { @Ui.Duration(t.FirstResponseAt - t.CreatedAt) @(t.FirstResponseAt > t.ResponseDueAt ? " " + L["(late)"] : "") }
+                        else if (t.ResponseDueAt.HasValue) { <span class="@(t.ResponseDueAt < DateTime.UtcNow ? "overdue" : "")">@L["due {0}", Ui.Ago(t.ResponseDueAt.Value)]</span> }
+                    </dd>
+                    <dt class="col-5">@L["Resolve by"]</dt>
+                    <dd class="col-7">
+                        @if (closed) { <span>@L["Resolved in {0}", Ui.Duration(t.ResolvedAt - t.CreatedAt)]</span> }
+                        else if (t.ResolveDueAt.HasValue) { <span class="@(t.IsOverdue ? "overdue" : "")">@Ui.Ago(t.ResolveDueAt.Value)</span> }
+                    </dd>
+                    @if (t.Rating.HasValue)
+                    {
+                        <dt class="col-5">@L["Rating"]</dt><dd class="col-7"><span class="text-warning">@(new string('★', t.Rating.Value))</span> @t.RatingComment</dd>
+                    }
+                }
+            </dl>
+        </div>
+
+        @if (staff && Model.OtherTickets.Any())
+        {
+            <div class="card card-body mb-3 small">
+                <h2 class="h6">@L["Other tickets from this requester"]</h2>
+                @foreach (var o in Model.OtherTickets)
+                {
+                    <div class="d-flex justify-content-between gap-2 mt-1"><a asp-page="Details" asp-route-id="@o.Id" class="text-truncate">@o.Number @o.Subject</a>@Ui.Status(o.Status)</div>
+                }
+            </div>
+        }
+
+        @if (staff)
+        {
+            <div class="card card-body small">
+                <h2 class="h6">@L["Activity"]</h2>
+                <ul class="list-unstyled mb-0" style="max-height:320px;overflow:auto">
+                    @foreach (var a in Model.Activities)
+                    {
+                        <li class="mb-2"><span>@a.Action</span><div class="text-muted">@(a.User?.DisplayName ?? L["System"].Value) · @Ui.Ago(a.CreatedAt)</div></li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+  document.getElementById('canned')?.addEventListener('change', e => {
+    if (!e.target.value) return;
+    const box = document.getElementById('replyBody');
+    box.value = (box.value ? box.value + '\n\n' : '') + e.target.value;
+    e.target.value = ''; box.focus();
+  });
+</script>
+}

@@ -1,0 +1,32 @@
+@page "{id:int?}"
+@model Help_DeskTicket_System.Pages.Kb.EditModel
+@{ ViewData["Title"] = Model.Id is null ? L["New article"].Value : L["Edit article"].Value; }
+<h1 class="h4 mb-3">@ViewData["Title"]</h1>
+<form method="post" class="card card-body">
+    <div asp-validation-summary="All" class="text-danger small"></div>
+    <div class="mb-3"><label asp-for="Form.Title" class="form-label"></label><input asp-for="Form.Title" class="form-control" /></div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label asp-for="Form.CategoryId" class="form-label">@L["Category"]</label>
+            <select asp-for="Form.CategoryId" class="form-select"><option value="">@L["General"]</option>
+                @foreach (var c in Model.Categories) { <option value="@c.Id">@c.Name</option> }
+            </select>
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            <div class="form-check"><input asp-for="Form.IsPublished" class="form-check-input" /><label asp-for="Form.IsPublished" class="form-check-label">@L["Published (visible to customers)"]</label></div>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Form.Body" class="form-label">@L["Content"]</label>
+        <textarea asp-for="Form.Body" class="form-control" rows="14"></textarea>
+        <div class="form-text">@L["Supports **bold**, `code`, \"- \" lists and links."]</div>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary">@L["Save article"]</button>
+        <a class="btn btn-outline-secondary" asp-page="Index">@L["Cancel"]</a>
+        @if (Model.Id is not null)
+        {
+            <button class="btn btn-outline-danger ms-auto" asp-page-handler="Delete" asp-route-id="@Model.Id" formnovalidate data-confirm="@L["Delete this article?"]">@L["Delete"]</button>
+        }
+    </div>
+</form>

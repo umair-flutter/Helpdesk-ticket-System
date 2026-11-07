@@ -1,0 +1,79 @@
+:root {
+  --sidebar-w: 240px;
+  --hd-surface: #ffffff;
+  --hd-bg: #f4f6fa;
+  --hd-border: #e3e7ee;
+  --hd-new: #fff8e1;
+}
+[data-bs-theme="dark"] {
+  --hd-surface: #1d2129;
+  --hd-bg: #14171d;
+  --hd-border: #2b313b;
+  --hd-new: #3a3420;
+}
+
+html { font-size: 14px; }
+body { background: var(--hd-bg); min-height: 100vh; }
+
+.brand { font-weight: 700; font-size: 1.15rem; text-decoration: none; color: var(--bs-body-color); }
+.brand i { color: var(--bs-primary); }
+
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--hd-surface); border-inline-end: 1px solid var(--hd-border); }
+@media (min-width: 992px) {
+  .sidebar { position: sticky; top: 0; height: 100vh; flex-shrink: 0; overflow-y: auto; }
+}
+.sidebar .nav-link { color: var(--bs-body-color); border-radius: .5rem; padding: .5rem .75rem; display: flex; gap: .6rem; align-items: center; }
+.sidebar .nav-link:hover { background: var(--hd-bg); }
+.sidebar .nav-link.active { background: var(--bs-primary); color: #fff; }
+.nav-section { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--bs-secondary-color); padding: 1rem .75rem .25rem; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; gap: .75rem; align-items: center; padding: .75rem 1.25rem; background: var(--hd-surface); border-bottom: 1px solid var(--hd-border); position: sticky; top: 0; z-index: 1020; }
+.topbar .search { max-width: 420px; }
+.content { padding: 1.5rem; }
+@media (max-width: 576px) { .content { padding: 1rem; } }
+
+.card { border-color: var(--hd-border); background: var(--hd-surface); }
+.stat { padding: 1rem 1.25rem; }
+.stat .num { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .lbl { color: var(--bs-secondary-color); font-size: .85rem; }
+.stat i { font-size: 1.6rem; opacity: .5; }
+
+.table > :not(caption) > * > * { background: transparent; }
+tr.ticket-new { background: var(--hd-new) !important; }
+tr.ticket-new td:first-child { box-shadow: inset 3px 0 0 var(--bs-warning); }
+.ticket-row { cursor: pointer; }
+.overdue { color: var(--bs-danger); font-weight: 600; }
+
+.bar { height: 10px; border-radius: 5px; background: var(--bs-primary); min-width: 2px; }
+.bar-track { background: var(--hd-bg); border-radius: 5px; }
+.spark { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+.spark > div { flex: 1; background: var(--bs-primary); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+
+.msg { border: 1px solid var(--hd-border); border-radius: .6rem; background: var(--hd-surface); margin-bottom: 1rem; }
+.msg-head { padding: .6rem 1rem; border-bottom: 1px solid var(--hd-border); display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; font-size: .9rem; }
+.msg-body { padding: 1rem; overflow-wrap: anywhere; }
+.msg.staff { border-inline-start: 3px solid var(--bs-primary); }
+.msg.internal { background: repeating-linear-gradient(45deg, var(--hd-new), var(--hd-new) 10px, transparent 10px, transparent 20px); border-inline-start: 3px solid var(--bs-warning); }
+
+.notif-menu { width: 340px; max-height: 420px; overflow-y: auto; }
+.notif-menu .item { display: block; padding: .6rem 1rem; border-bottom: 1px solid var(--hd-border); text-decoration: none; color: inherit; font-size: .9rem; }
+.notif-menu .item.unread { background: var(--hd-new); }
+
+.stars { direction: rtl; display: inline-flex; }
+.stars input { display: none; }
+.stars label { font-size: 1.8rem; color: #ccc; cursor: pointer; padding: 0 2px; }
+.stars input:checked ~ label, .stars label:hover, .stars label:hover ~ label { color: #f5b301; }
+
+.color-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+.auth-card { max-width: 420px; margin: 3rem auto; }
+
+/* ---- RTL & script-specific fonts */
+[dir="rtl"] tr.ticket-new td:first-child { box-shadow: inset -3px 0 0 var(--bs-warning); }
+[dir="rtl"] .bi-arrow-left { display: inline-block; transform: scaleX(-1); }
+[dir="rtl"] .stars { direction: ltr; }
+html[lang="ar"] body, html[lang="fa"] body { font-family: "Noto Naskh Arabic", system-ui, sans-serif; }
+html[lang="ur"] body { font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", system-ui, sans-serif; line-height: 2; }
+html[lang="ur"] .badge { line-height: 1.6; }
+.lang-menu { max-height: 360px; overflow-y: auto; }

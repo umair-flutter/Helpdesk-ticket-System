@@ -1,0 +1,131 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = L["Dashboard"].Value;
+    var staff = User.IsStaff();
+    int maxStatus = Math.Max(1, Model.ByStatus.Select(b => b.Count).DefaultIfEmpty().Max());
+    int maxDay = Math.Max(1, Model.Last14.Select(d => d.Count).DefaultIfEmpty().Max());
+}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">@L["Dashboard"]</h1>
+    <a class="btn btn-primary" asp-page="/Tickets/Create"><i class="bi bi-plus-lg"></i> @L["New ticket"]</a>
+</div>
+
+<div class="row g-3 mb-3">
+    @{
+        var tiles = staff
+            ? new[] {
+                ("Open tickets", Model.Open, "bi-inbox", "/Tickets?view=open"),
+                ("Unassigned", Model.Unassigned, "bi-person-dash", "/Tickets?view=unassigned"),
+                ("Assigned to me", Model.Mine, "bi-person-check", "/Tickets?view=mine"),
+                ("SLA overdue", Model.Overdue, "bi-alarm", "/Tickets?view=overdue"),
+                ("Created today", Model.CreatedToday, "bi-plus-square", "/Tickets"),
+                ("Resolved today", Model.ResolvedToday, "bi-check2-circle", "/Tickets?view=closed") }
+            : new[] {
+                ("My open tickets", Model.Open, "bi-inbox", "/Tickets?view=open"),
+                ("Waiting on me", Model.WaitingOnMe, "bi-hourglass-split", "/Tickets"),
+                ("Resolved today", Model.ResolvedToday, "bi-check2-circle", "/Tickets?view=closed") };
+    }
+    @foreach (var (label, num, icon, href) in tiles)
+    {
+        <div class="col-6 col-md-4 col-xl-2">
+            <a class="card stat text-decoration-none h-100" href="@href">
+                <div class="d-flex justify-content-between">
+                    <div><div class="num @(label == "SLA overdue" && num > 0 ? "text-danger" : "")">@num</div><div class="lbl">@L[label]</div></div>
+                    <i class="bi @icon"></i>
+                </div>
+            </a>
+        </div>
+    }
+    @if (staff)
+    {
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat h-100"><div class="num">@(Model.AvgRating?.ToString("0.0") ?? "—")<small class="fs-6 text-warning"> ★</small></div><div class="lbl">@L["Avg. satisfaction"]</div></div>
+        </div>
+    }
+</div>
+
+<div class="row g-3">
+    @if (staff)
+    {
+        <div class="col-lg-8">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h6">@L["Tickets created — last 14 days"]</h2>
+                <div class="spark mt-3">
+                    @foreach (var (day, count) in Model.Last14)
+                    {
+                        <div style="height:@(count * 100 / maxDay)%" title="@day.ToString("dd MMM"): @count"></div>
+                    }
+                </div>
+                <div class="d-flex justify-content-between small text-muted mt-1">
+                    <span>@Model.Last14.First().Day.ToString("dd MMM")</span><span>@L["Today"]</span>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h6">@L["Open by priority"]</h2>
+                @foreach (var b in Model.ByPriority)
+                {
+                    <div class="d-flex justify-content-between mt-2"><span>@Ui.Badge(b.Name, b.Color)</span><strong>@b.Count</strong></div>
+                }
+                @if (!Model.ByPriority.Any()) { <p class="text-muted small mt-2">@L["Nothing open. 🎉"]</p> }
+                <h2 class="h6 mt-4">@L["Agent workload"]</h2>
+                @foreach (var (agent, open) in Model.AgentLoad)
+                {
+                    <div class="d-flex justify-content-between small mt-1"><span>@agent</span><span>@open open</span></div>
+                }
+                @if (!Model.AgentLoad.Any()) { <p class="text-muted small">@L["No assigned tickets."]</p> }
+            </div></div>
+        </div>
+    }
+
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h6">@L["By status"]</h2>
+            @foreach (var b in Model.ByStatus)
+            {
+                <div class="mt-2">
+                    <div class="d-flex justify-content-between small"><span>@b.Name</span><span>@b.Count</span></div>
+                    <div class="bar-track"><div class="bar" style="width:@(b.Count * 100 / maxStatus)%;background:@b.Color"></div></div>
+                </div>
+            }
+            @if (!Model.ByStatus.Any()) { <p class="text-muted small">@L["No tickets yet."]</p> }
+        </div></div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card h-100"><div class="card-body">
+            <div class="d-flex justify-content-between"><h2 class="h6">@L["Recently updated"]</h2><a class="small" asp-page="/Tickets/Index">@L["View all"]</a></div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <tbody>
+                    @foreach (var t in Model.Recent)
+                    {
+                        <tr class="ticket-row" data-href="/Tickets/Details/@t.Id">
+                            <td class="text-muted small text-nowrap">@t.Number</td>
+                            <td dir="auto">@t.Subject</td>
+                            <td>@Ui.Status(t.Status)</td>
+                            <td class="d-none d-md-table-cell">@Ui.Priority(t.Priority)</td>
+                            <td class="text-muted small text-nowrap">@Ui.Ago(t.UpdatedAt)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                @if (!Model.Recent.Any()) { <p class="text-muted small mb-0">@L["No tickets yet."] <a asp-page="/Tickets/Create">@L["Open your first one."]</a></p> }
+            </div>
+        </div></div>
+    </div>
+
+    @if (!staff && Model.PopularKb.Any())
+    {
+        <div class="col-12">
+            <div class="card"><div class="card-body">
+                <h2 class="h6">@L["Popular help articles"]</h2>
+                <ul class="mb-0">
+                    @foreach (var k in Model.PopularKb) { <li><a asp-page="/Kb/Article" asp-route-id="@k.Id">@k.Title</a></li> }
+                </ul>
+            </div></div>
+        </div>
+    }
+</div>
