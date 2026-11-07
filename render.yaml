@@ -1,0 +1,39 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repository.
+# Keys marked "sync: false" are asked for once in the Render dashboard (never commit real passwords).
+services:
+  - type: web
+    name: helpdesk-ticket-system
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /Account/Login
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: Seed__Users__0__Email
+        value: "admin@helpdesk.demo"
+      - key: Seed__Users__0__Role
+        value: "Admin"
+      - key: Seed__Users__0__FullName
+        value: "Demo Admin"
+      - key: Seed__Users__0__Password
+        sync: false
+      - key: Seed__Users__1__Email
+        value: "agent@helpdesk.demo"
+      - key: Seed__Users__1__Role
+        value: "Agent"
+      - key: Seed__Users__1__FullName
+        value: "Demo Agent"
+      - key: Seed__Users__1__Department
+        value: "Technical Support"
+      - key: Seed__Users__1__Password
+        sync: false
+      - key: Seed__Users__2__Email
+        value: "client@helpdesk.demo"
+      - key: Seed__Users__2__Role
+        value: "Client"
+      - key: Seed__Users__2__FullName
+        value: "Demo Customer"
+      - key: Seed__Users__2__Password
+        sync: false
